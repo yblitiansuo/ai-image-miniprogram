@@ -12,8 +12,8 @@ services:
       - MYSQL_PORT=3306
       - MYSQL_DB=${MYSQL_DB:-ai_image}
       - MYSQL_USER=${MYSQL_USER:-ai_image}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-ai_image123}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-change-me}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-change-me}@redis:6379/0
       - ARK_API_KEY=${ARK_API_KEY:-your-ark-api-key}
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
       - DEV_MODE=false
@@ -36,10 +36,10 @@ services:
     container_name: mysql_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
       MYSQL_DATABASE: ${MYSQL_DB:-ai_image}
       MYSQL_USER: ${MYSQL_USER:-ai_image}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ai_image123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
     networks:
       - ai_image_net
     volumes:
@@ -49,7 +49,7 @@ services:
     image: redis:7-alpine
     container_name: redis_db
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
+    command: redis-server --requirepass ${REDIS_PASSWORD:-change-me}
     networks:
       - ai_image_net
     volumes:

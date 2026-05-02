@@ -6,15 +6,15 @@
     }
   },
   "env": {
-    "prod-d8gresw3ba025aaa8": {
+    "your-cloud-env-id": {
       "name": "生产环境",
-      "env": "prod-d8gresw3ba025aaa8"
+      "env": "your-cloud-env-id"
     }
   },
   "cloudfunctionRoots": {
-    "prod-d8gresw3ba025aaa8": {
+    "your-cloud-env-id": {
       "root": "cloudfunctions/",
-      "env": "prod-d8gresw3ba025aaa8"
+      "env": "your-cloud-env-id"
     }
   }
 }

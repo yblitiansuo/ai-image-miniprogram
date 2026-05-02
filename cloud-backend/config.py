@@ -50,7 +50,7 @@ class Config:
     WECHAT_JSCODE2SESSION_URL: str = "https://api.weixin.qq.com/sns/jscode2session"
 
     # JWT
-    JWT_SECRET: str = _get_env("JWT_SECRET", "change-me-in-production")
+    JWT_SECRET: str = _get_env("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_HOURS: int = 168  # 7 days
 

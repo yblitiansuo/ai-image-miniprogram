@@ -4,10 +4,10 @@ services:
     container_name: ai_image_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
       MYSQL_DATABASE: ${MYSQL_DB:-ai_image}
       MYSQL_USER: ${MYSQL_USER:-ai_image}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ai_image123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
     ports:
       - "${MYSQL_HOST_PORT:-3306}:3306"
     volumes:
@@ -45,7 +45,7 @@ services:
       - MYSQL_PORT=3306
       - MYSQL_DB=${MYSQL_DB:-ai_image}
       - MYSQL_USER=${MYSQL_USER:-ai_image}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-ai_image123}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-change-me}
       - REDIS_URL=redis://redis:6379/0
       - ARK_API_KEY=${ARK_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
