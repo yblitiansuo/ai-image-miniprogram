@@ -1,0 +1,139 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{tasks.length === 0}}">
+    <text class="empty-text">暂无任务</text>
+    <text class="empty-hint">点击下方 + 创建任务</text>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="task-list" wx:if="{{tasks.length > 0}}">
+    <view class="task-card" wx:for="{{tasks}}" wx:key="id"
+          bindtap="onEditTask" data-index="{{index}}">
+      <view class="task-header">
+        <text class="task-title">任务 {{index + 1}}</text>
+        <text class="task-status status-{{item.status}}">{{item.statusText}}</text>
+        <view class="task-remove" catchtap="onDeleteTask" data-index="{{index}}" data-id="{{item.backendTaskId || item.id}}">✕</view>
+      </view>
+
+      <view class="task-images">
+        <!-- 商品图 -->
+        <view class="task-img-box">
+          <block wx:if="{{item.productImage}}">
+            <image class="task-img" src="{{item.productImage}}" mode="aspectFill"/>
+          </block>
+          <view wx:else class="task-img-placeholder">
+            <text class="placeholder-icon">📦</text>
+            <text class="placeholder-text">商品图</text>
+          </view>
+        </view>
+        <!-- 参考图 -->
+        <view class="task-img-box">
+          <block wx:if="{{item.refImage}}">
+            <image class="task-img" src="{{item.refImage}}" mode="aspectFill"/>
+          </block>
+          <view wx:else class="task-img-placeholder">
+            <text class="placeholder-icon">🖼️</text>
+            <text class="placeholder-text">参考图</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="task-meta" wx:if="{{item.text || item.prompt}}">
+        <text wx:if="{{item.text}}" class="meta-item">文案：{{item.text}}</text>
+        <text wx:if="{{item.prompt}}" class="meta-item">提示词：{{item.prompt}}</text>
+      </view>
+
+      <!-- 结果展示 -->
+      <view class="task-results" wx:if="{{item.resultUrls.length > 0}}">
+        <text class="result-label">生成结果</text>
+        <block wx:for="{{item.resultUrls}}" wx:for-item="url" wx:key="*this">
+          <view class="result-item">
+            <image class="result-thumb" src="{{url}}" mode="aspectFill"
+                   data-url="{{url}}" bindtap="previewImage"/>
+            <button class="result-save-btn" size="mini"
+                    data-url="{{url}}" data-index="{{index}}" bindtap="onSaveResult">保存</button>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 批量提交按钮 -->
+    <button class="batch-submit-btn" bindtap="onBatchSubmit"
+            wx:if="{{readyCount > 0 && statusCount.processing === 0}}">
+      全部提交（{{readyCount}}个任务）
+    </button>
+  </view>
+
+  <!-- 创建任务面板（底部弹窗） -->
+  <view class="panel-overlay" wx:if="{{showTaskPanel}}" bindtap="onOverlayTap">
+    <view class="task-panel">
+      <view class="panel-header">
+        <text class="panel-title">{{editingTaskIndex === null ? '创建任务' : '编辑任务'}}</text>
+        <view class="panel-close" bindtap="closeTaskPanel">✕</view>
+      </view>
+      <scroll-view class="panel-body" scroll-y>
+        <!-- 商品图选择 -->
+        <view class="form-section">
+          <text class="form-label">商品图</text>
+          <view class="upload-area">
+            <block wx:if="{{taskForm.productImage}}">
+              <image class="uploaded-img" src="{{taskForm.productImage}}" mode="aspectFill"/>
+              <view class="upload-actions">
+                <text class="upload-action" bindtap="onChangeProductImage">更换</text>
+                <text class="upload-action danger" bindtap="onRemoveProductImage">删除</text>
+              </view>
+            </block>
+            <view wx:else class="upload-actions-row">
+              <button class="mini-btn" bindtap="onSelectImage" data-target="product" data-source="camera">拍照</button>
+              <button class="mini-btn" bindtap="onSelectImage" data-target="product" data-source="album">相册</button>
+            </view>
+          </view>
+        </view>
+        <!-- 参考图选择 -->
+        <view class="form-section">
+          <text class="form-label">参考图</text>
+          <view class="upload-area">
+            <block wx:if="{{taskForm.refImage}}">
+              <image class="uploaded-img" src="{{taskForm.refImage}}" mode="aspectFill"/>
+              <view class="upload-actions">
+                <text class="upload-action" bindtap="onChangeRefImage">更换</text>
+                <text class="upload-action danger" bindtap="onRemoveRefImage">删除</text>
+              </view>
+            </block>
+            <view wx:else class="upload-actions-row">
+              <button class="mini-btn" bindtap="onSelectImage" data-target="ref" data-source="camera">拍照</button>
+              <button class="mini-btn" bindtap="onSelectImage" data-target="ref" data-source="album">相册</button>
+            </view>
+          </view>
+        </view>
+        <!-- 自定义文案 -->
+        <view class="form-section">
+          <text class="form-label">自定义文案</text>
+          <textarea class="form-textarea" value="{{taskForm.text}}"
+                    bindinput="onTaskTextInput" placeholder="如：限时特惠 5折起"
+                    maxlength="100" auto-height/>
+          <text class="form-count">{{taskForm.text.length}}/100</text>
+        </view>
+        <!-- 提示词 -->
+        <view class="form-section">
+          <text class="form-label">提示词</text>
+          <textarea class="form-textarea" value="{{taskForm.prompt}}"
+                    bindinput="onTaskPromptInput" placeholder="如：白色背景，产品居中"
+                    maxlength="300" auto-height/>
+          <text class="form-count">{{taskForm.prompt.length}}/300</text>
+        </view>
+      </scroll-view>
+      <view class="panel-footer">
+        <button class="btn btn-cancel" bindtap="closeTaskPanel">取消</button>
+        <button class="btn btn-save" bindtap="saveTask"
+                disabled="{{!taskForm.productImage || !taskForm.refImage}}">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- + 添加任务按钮 -->
+  <view class="fab-btn" bindtap="onCreateTask">
+    <text class="fab-icon">+</text>
+  </view>
+</view>

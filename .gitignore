@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Local secrets and certificates
+cloud-backend/.env
+cloud-backend/certs/
+*.pem
+*.key
+*.p12
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime logs
+*.log
+logs/
+
+# WeChat private config
+project.private.config.json
+miniprogram/project.private.config.json
+
+# Temporary files
+*.tmp
+*.swp

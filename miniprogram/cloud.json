@@ -1,0 +1,20 @@
+{
+  "cloudfunctionRoot": "cloudfunctions/",
+  "cloudfunctionRoots": {
+    "cloudfunctions": {
+      "root": "cloudfunctions/"
+    }
+  },
+  "env": {
+    "prod-d8gresw3ba025aaa8": {
+      "name": "生产环境",
+      "env": "prod-d8gresw3ba025aaa8"
+    }
+  },
+  "cloudfunctionRoots": {
+    "prod-d8gresw3ba025aaa8": {
+      "root": "cloudfunctions/",
+      "env": "prod-d8gresw3ba025aaa8"
+    }
+  }
+}

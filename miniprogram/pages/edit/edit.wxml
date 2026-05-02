@@ -1,0 +1,25 @@
+<view class="canvas-container">
+  <canvas
+    canvas-id="editCanvas"
+    id="editCanvas"
+    class="edit-canvas"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    style="width: {{canvasWidth}}px; height: {{canvasHeight}}px"
+  ></canvas>
+  <view class="crop-info">{{cropW}} x {{cropH}}</view>
+</view>
+
+<view class="toolbar">
+  <button class="btn" bindtap="onRotate">旋转</button>
+  <view class="aspect-options">
+    <block wx:for="{{cropModes}}" wx:key="value">
+      <button class="aspect-btn {{selectedMode === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="onAspectChange">{{item.label}}</button>
+    </block>
+  </view>
+  <button class="btn" data-type="minus" bindtap="onZoom">缩小</button>
+  <button class="btn" data-type="plus" bindtap="onZoom">放大</button>
+  <view style="flex: 1;"></view>
+  <button class="btn" bindtap="onCancel">取消</button>
+  <button class="btn btn-primary" bindtap="onConfirm">确定</button>
+</view>

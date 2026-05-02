@@ -1,0 +1,144 @@
+/* pages/user/user.wxss */
+.container {
+  padding: 24rpx;
+  padding-bottom: 120rpx;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+.user-card {
+  margin-bottom: 24rpx;
+}
+
+.user-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  margin-right: 24rpx;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-id {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.user-time {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.quota-display {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.quota-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.quota-value {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 8rpx;
+}
+
+.quota-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx;
+  background-color: var(--bg-color);
+  border-radius: 8rpx;
+}
+
+.task-status {
+  font-size: 24rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+}
+
+.status-pending {
+  background-color: #fff7e6;
+  color: #fa8c16;
+}
+
+.status-processing {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.status-completed {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.status-failed {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+}
+
+.task-time {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.task-actions {
+  font-size: 28rpx;
+  color: var(--primary-color);
+}
+
+.empty {
+  text-align: center;
+  padding: 48rpx 0;
+  color: var(--text-secondary);
+  font-size: 28rpx;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin-top: 32rpx;
+}
+
+.action-buttons .btn {
+  width: 100%;
+}

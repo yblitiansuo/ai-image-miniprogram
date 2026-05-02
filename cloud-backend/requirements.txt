@@ -1,0 +1,15 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+gunicorn==22.0.0
+python-multipart==0.0.6
+requests==2.31.0
+python-dotenv==1.0.0
+python-jose[cryptography]==3.3.0
+bcrypt==4.1.2
+sqlalchemy==2.0.23
+pymysql==1.1.0
+alembic==1.12.1
+celery==5.3.4
+redis==5.0.1
+tencentcloud-sdk-python==3.0.1121
+pillow==10.1.0

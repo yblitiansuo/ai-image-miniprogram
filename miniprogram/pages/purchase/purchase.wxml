@@ -1,0 +1,28 @@
+<!--pages/purchase/purchase.wxml-->
+<view class="container" data-theme="{{theme}}">
+  <view class="card">
+    <view class="section-title">选择套餐</view>
+    <view class="package-list">
+      <view 
+        class="package-item {{selectedPackage === item.id ? 'selected' : ''}}" 
+        wx:for="{{packages}}" 
+        wx:key="id"
+        bindtap="onSelectPackage"
+        data-id="{{item.id}}"
+      >
+        <view class="package-header">
+          <text class="package-name">{{item.name}}</text>
+          <text class="package-price">¥{{item.price}}</text>
+        </view>
+        <text class="package-desc">{{item.description}}</text>
+        <text class="package-quota">配额：{{item.quota === -1 ? '无限' : item.quota + ' 次'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="action-buttons">
+    <button class="btn btn-primary" bindtap="onPurchase" disabled="{{purchasing}}">
+      {{purchasing ? '处理中...' : '立即购买'}}
+    </button>
+  </view>
+</view>

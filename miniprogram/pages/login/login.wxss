@@ -1,0 +1,73 @@
+/* pages/login/login.wxss - Solara 极简风格 */
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 640rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 96rpx 48rpx;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 64rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 500;
+  color: #18181b;
+  margin-bottom: 16rpx;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: #6b7280;
+  font-weight: 400;
+  text-align: center;
+}
+
+.wechat-login {
+  width: 100%;
+  height: 88rpx;
+  background-color: #18181b;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  border: none;
+  margin-bottom: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wechat-login:active {
+  opacity: 0.85;
+}
+
+.btn-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy {
+  text-align: center;
+  font-size: 24rpx;
+  color: #6b7280;
+  line-height: 1.6;
+  padding: 0 32rpx;
+}

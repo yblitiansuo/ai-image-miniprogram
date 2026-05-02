@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ai_image_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DB:-ai_image}
+      MYSQL_USER: ${MYSQL_USER:-ai_image}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ai_image123}
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ai_image_net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_image_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-16379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai_image_net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: ai_image_backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-9999}:9999"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DB=${MYSQL_DB:-ai_image}
+      - MYSQL_USER=${MYSQL_USER:-ai_image}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-ai_image123}
+      - REDIS_URL=redis://redis:6379/0
+      - ARK_API_KEY=${ARK_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - DEV_MODE=${DEV_MODE:-false}
+      - BACKEND_PORT=${BACKEND_PORT:-9999}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://127.0.0.1:9999,http://localhost:9999}
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ai_image_net
+
+networks:
+  ai_image_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:

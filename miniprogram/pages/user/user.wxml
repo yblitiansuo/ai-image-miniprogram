@@ -1,0 +1,49 @@
+<!--pages/user/user.wxml-->
+<view class="container" data-theme="{{theme}}">
+  <view class="card user-card">
+    <view class="user-header">
+      <view class="avatar">👤</view>
+      <view class="user-info">
+        <text class="user-id">{{userId}}</text>
+        <text class="user-time">加入时间：{{createdAt}}</text>
+      </view>
+    </view>
+    <view class="quota-display">
+      <view class="quota-item">
+        <text class="quota-value">{{quota}}</text>
+        <text class="quota-label">剩余配额</text>
+      </view>
+      <view class="quota-item">
+        <text class="quota-value">{{totalGenerated}}</text>
+        <text class="quota-label">已生成</text>
+      </view>
+      <view class="quota-item">
+        <text class="quota-value">{{runningTasks}}</text>
+        <text class="quota-label">进行中</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">最近任务</view>
+    <view class="task-list" wx:if="{{tasks.length > 0}}">
+      <view class="task-item" wx:for="{{tasks}}" wx:key="id">
+        <view class="task-status status-{{item.status}}">
+          {{statusText[item.status]}}
+        </view>
+        <view class="task-time">{{item.created_at}}</view>
+        <view class="task-actions" wx:if="{{item.status === 'completed'}}">
+          <text class="link" bindtap="previewResult" data-urls="{{item.result_urls}}">查看</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:else>
+      <text>暂无任务记录</text>
+    </view>
+  </view>
+
+  <view class="action-buttons">
+    <button class="btn btn-primary" bindtap="goToPurchase">购买配额</button>
+    <button class="btn btn-secondary" bindtap="onLogout">退出登录</button>
+  </view>
+</view>
