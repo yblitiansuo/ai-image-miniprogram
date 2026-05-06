@@ -1,6 +1,6 @@
 /* pages/edit/edit.wxss */
 page {
-  background: #000;
+  background: #fafaf8;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -22,62 +22,65 @@ page {
 }
 
 .toolbar {
-  background: #1a1a1a;
+  background: #ffffff;
   padding: 16rpx 24rpx;
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: 12rpx;
   align-items: center;
   justify-content: flex-end;
+  border-top: 2rpx solid #e8e8e6;
 }
 
 .btn {
-  background: #333;
-  color: #fff;
+  background: #f2f2f0;
+  color: #1a1a1a;
   border: none;
-  padding: 16rpx 32rpx;
-  border-radius: 8rpx;
-  font-size: 28rpx;
+  padding: 16rpx 28rpx;
+  border-radius: 10rpx;
+  font-size: 26rpx;
 }
 
 .btn:active {
-  background: #444;
+  background: #e0e0dc;
 }
 
 .btn-primary {
-  background: #1890ff;
+  background: #1a1a1a;
+  color: #ffffff;
 }
 
 .btn-primary:active {
-  background: #096dd9;
+  opacity: 0.85;
 }
 
 .aspect-options {
   display: flex;
-  gap: 12rpx;
+  gap: 10rpx;
 }
 
 .aspect-btn {
-  padding: 12rpx 24rpx;
-  background: #333;
-  color: #fff;
+  padding: 12rpx 22rpx;
+  background: #f2f2f0;
+  color: #1a1a1a;
   border-radius: 8rpx;
-  font-size: 28rpx;
+  font-size: 26rpx;
 }
 
 .aspect-btn.active {
-  background: #1890ff;
+  background: #1a1a1a;
+  color: #ffffff;
 }
 
 .crop-info {
   position: absolute;
   top: 32rpx;
   left: 32rpx;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 12rpx 24rpx;
+  background: rgba(0,0,0,0.7);
+  color: #ffffff;
+  padding: 10rpx 20rpx;
   border-radius: 8rpx;
-  font-size: 28rpx;
+  font-size: 26rpx;
 }
 
 .check-badge {
@@ -87,8 +90,8 @@ page {
   min-width: 40rpx;
   height: 40rpx;
   padding: 0 10rpx;
-  background-color: rgba(82, 196, 26, 0.9);
-  color: white;
+  background-color: rgba(58, 138, 74, 0.9);
+  color: #ffffff;
   border-radius: 20rpx;
   font-size: 24rpx;
   display: flex;

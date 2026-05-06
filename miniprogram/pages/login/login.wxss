@@ -1,73 +1,94 @@
-/* pages/login/login.wxss - Solara 极简风格 */
-.container {
+/* pages/login/login.wxss — 极简风格 */
+
+.login-container {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #fafaf8;
+  padding: 96rpx 44rpx;
+}
+
+/* 图标 — CSS 绘制相框 */
+.login-icon {
+  width: 128rpx;
+  height: 128rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 640rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 96rpx 48rpx;
-}
-
-.brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   margin-bottom: 64rpx;
 }
 
-.title {
+.icon-frame {
+  width: 96rpx;
+  height: 96rpx;
+  border: 3rpx solid #1a1a1a;
+  border-radius: 24rpx;
+  position: relative;
+  opacity: 0.8;
+}
+
+.icon-frame::after {
+  content: '';
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #1a1a1a;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+/* 品牌区 */
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 96rpx;
+}
+
+.brand-name {
   font-size: 44rpx;
-  font-weight: 500;
-  color: #18181b;
-  margin-bottom: 16rpx;
-  line-height: 1.3;
-  text-align: center;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12rpx;
+  letter-spacing: 0.04em;
 }
 
-.subtitle {
+.brand-tagline {
   font-size: 28rpx;
-  color: #6b7280;
-  font-weight: 400;
-  text-align: center;
+  color: #8a8a8a;
+  font-weight: 300;
 }
 
-.wechat-login {
+/* 登录按钮 */
+.login-btn {
   width: 100%;
-  height: 88rpx;
-  background-color: #18181b;
+  height: 96rpx;
+  background-color: #1a1a1a;
   color: #ffffff;
-  border-radius: 16rpx;
+  border-radius: 20rpx;
   font-size: 30rpx;
   font-weight: 500;
   border: none;
-  margin-bottom: 48rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  letter-spacing: 0.04em;
 }
 
-.wechat-login:active {
+.login-btn:active {
   opacity: 0.85;
 }
 
-.btn-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.privacy {
+/* 协议 */
+.login-terms {
+  margin-top: 56rpx;
   text-align: center;
   font-size: 24rpx;
-  color: #6b7280;
+  color: #bfbfbf;
   line-height: 1.6;
   padding: 0 32rpx;
 }

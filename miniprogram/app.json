@@ -7,16 +7,16 @@
     "pages/edit/edit"
   ],
   "window": {
-    "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#fff",
-    "navigationBarTitleText": "电商 AI 图片生成",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#fafaf8",
+    "navigationBarTitleText": "AI 图片生成",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#666666",
-    "selectedColor": "#1890ff",
+    "color": "#bfbfbf",
+    "selectedColor": "#1a1a1a",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",

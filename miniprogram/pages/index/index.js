@@ -202,7 +202,7 @@ Page({
   },
 
   // 商品图操作
-  onChangeProductImage() {
+  showProductPicker() {
     this._showReplacePicker('product')
   },
   onRemoveProductImage() {
@@ -210,7 +210,7 @@ Page({
   },
 
   // 参考图操作
-  onChangeRefImage() {
+  showRefPicker() {
     this._showReplacePicker('ref')
   },
 

@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "AI 图片生成"
+  "navigationBarTitleText": "AI 图片生成",
+  "navigationBarBackgroundColor": "#fafaf8",
+  "navigationBarTextStyle": "black"
 }

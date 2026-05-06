@@ -1,17 +1,16 @@
 <!--pages/login/login.wxml-->
-<view class="container" data-theme="{{theme}}">
-  <view class="login-card">
-    <view class="brand">
-      <text class="title">AI 图片生成</text>
-      <text class="subtitle">电商商品图，一键生成</text>
-    </view>
-
-    <button class="wechat-login" bindtap="handleMockLogin" loading="{{isLoggingIn}}">
-      <text class="btn-text">{{isLoggingIn ? '登录中...' : '微信授权登录'}}</text>
-    </button>
-
-    <view class="privacy">
-      <text>继续即表示同意《用户协议》和《隐私政策》</text>
-    </view>
+<view class="login-container">
+  <view class="login-icon">
+    <view class="icon-frame"></view>
+  </view>
+  <view class="login-brand">
+    <text class="brand-name">AI 商品图</text>
+    <text class="brand-tagline">拍照上传，30 秒生成场景展示图</text>
+  </view>
+  <button class="login-btn" bindtap="handleMockLogin" loading="{{isLoggingIn}}">
+    {{isLoggingIn ? '登录中...' : '微信授权登录'}}
+  </button>
+  <view class="login-terms">
+    <text>继续即表示同意《用户协议》和《隐私政策》</text>
   </view>
 </view>

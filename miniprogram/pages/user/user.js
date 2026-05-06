@@ -6,11 +6,12 @@ Page({
   data: {
     token: '',
     userId: '',
-    theme: 'light',
     quota: 0,
     totalGenerated: 0,
     runningTasks: 0,
     createdAt: '',
+    firstLetter: '',
+    quotaPct: 0,
     tasks: [],
     statusText: {
       pending: '排队中',
@@ -21,10 +22,11 @@ Page({
   },
 
   onLoad() {
+    const userId = wx.getStorageSync('userId') || ''
     this.setData({
       token: wx.getStorageSync('token') || '',
-      userId: wx.getStorageSync('userId') || '',
-      theme: app.globalData.theme || 'light'
+      userId,
+      firstLetter: userId ? userId.charAt(0).toUpperCase() : '?'
     })
     this.loadUserInfo()
     this.loadTasks()
@@ -42,11 +44,14 @@ Page({
   async loadUserInfo() {
     try {
       const info = await api.getUserInfo(this.data.token)
+      const total = info.total_generated + info.quota
+      const pct = total > 0 ? Math.round((info.total_generated / total) * 100) : 0
       this.setData({
         quota: info.quota,
         totalGenerated: info.total_generated,
         runningTasks: info.running_tasks,
-        createdAt: this.formatDate(info.created_at)
+        createdAt: this.formatDate(info.created_at),
+        quotaPct: pct
       })
     } catch (err) {
       console.error('Get user info failed:', err)

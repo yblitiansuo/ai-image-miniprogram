@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "编辑图片",
+  "navigationBarBackgroundColor": "#fafaf8",
+  "navigationBarTextStyle": "black",
   "usingComponents": {}
 }

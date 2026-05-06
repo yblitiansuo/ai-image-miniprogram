@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "购买配额",
+  "navigationBarBackgroundColor": "#fafaf8",
+  "navigationBarTextStyle": "black",
   "usingComponents": {}
 }
