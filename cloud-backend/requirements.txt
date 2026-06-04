@@ -12,4 +12,4 @@ alembic==1.12.1
 celery==5.3.4
 redis==5.0.1
 tencentcloud-sdk-python==3.0.1121
-pillow==10.1.0
+pillow==10.4.0

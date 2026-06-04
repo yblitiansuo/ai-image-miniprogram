@@ -16,14 +16,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 从 builder 复制已安装的包
-COPY --from=builder /root/.local /root/.local
+# 创建非 root 用户
+RUN useradd -r -s /bin/false appuser
+
+# 从 builder 复制已安装的包到 appuser 可访问的路径
+COPY --from=builder /root/.local /home/appuser/.local
 
 # 复制源代码
 COPY . .
 
 # 确保 PATH 包含用户目录的 bin（如果有 console scripts）
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONPATH=/home/appuser/.local/lib/python3.11/site-packages:$PYTHONPATH
+
+# 切换到非 root 用户
+USER appuser
 
 # 暴露端口
 EXPOSE 9999

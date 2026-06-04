@@ -19,9 +19,7 @@ DEFAULT_PROMPT = """\
 仅改变其背景、光影、色调、氛围，使其风格与后续图片一致。
 生成一张高质量电商主图，专业灯光，精美构图，适合电商平台展示。"""
 
-# 检查 config 对象
-if not hasattr(config, 'ARK_API_KEY'):
-    raise RuntimeError("config 对象缺少 ARK_API_KEY 属性，请检查 .env 配置")
+# 惰性检查：仅在实际调用时校验 API Key
 
 def sanitize_text(text: str) -> str:
     """清理文本，移除可能破坏 JSON/Markdown 的特殊字符"""
@@ -63,14 +61,35 @@ def call_seedream_merge(
     model = getattr(config, 'SEEDREAM_MODEL', 'doubao-seedream-5-0-260128')
     size = getattr(config, 'SEEDREAM_SIZE', '2K')
 
-    # 读取图片并转为 base64
+    # 读取图片，压缩后转为 base64（控制内存占用）
     import base64
-    with open(product_path, 'rb') as f:
-        product_b64 = base64.b64encode(f.read()).decode('utf-8')
+    from PIL import Image
+    from io import BytesIO
+
+    MAX_DIMENSION = 2048  # 最大边长
+    JPEG_QUALITY = 85
+
+    def compress_image(path: str) -> bytes:
+        try:
+            img = Image.open(path)
+        except Exception as e:
+            raise ValueError(f"无法读取图片 {path}: {e}") from e
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+        # 缩放过大图片
+        if max(img.size) > MAX_DIMENSION:
+            ratio = MAX_DIMENSION / max(img.size)
+            img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS)
+        buf = BytesIO()
+        img.save(buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
+        return buf.getvalue()
+
+    product_bytes = compress_image(product_path)
+    product_b64 = base64.b64encode(product_bytes).decode('utf-8')
     image_urls = [f"data:image/jpeg;base64,{product_b64}"]
     for ref in ref_paths:
-        with open(ref, 'rb') as f:
-            ref_b64 = base64.b64encode(f.read()).decode('utf-8')
+        ref_bytes = compress_image(ref)
+        ref_b64 = base64.b64encode(ref_bytes).decode('utf-8')
         image_urls.append(f"data:image/jpeg;base64,{ref_b64}")
 
     # 构建 prompt（参考网页版的 prompt 组合方式）
@@ -97,7 +116,8 @@ def call_seedream_merge(
         "prompt": final_prompt,
         "image": image_urls,
         "response_format": "url",
-        "size": size
+        "size": size,
+        "watermark": False
     }
 
     headers = {

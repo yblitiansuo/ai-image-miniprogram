@@ -7,10 +7,13 @@
     <text class="brand-name">AI 商品图</text>
     <text class="brand-tagline">拍照上传，30 秒生成场景展示图</text>
   </view>
-  <button class="login-btn" bindtap="handleMockLogin" loading="{{isLoggingIn}}">
+  <button class="login-btn" bindtap="handleLogin" loading="{{isLoggingIn}}">
     {{isLoggingIn ? '登录中...' : '微信授权登录'}}
   </button>
   <view class="login-terms">
-    <text>继续即表示同意《用户协议》和《隐私政策》</text>
+    <text>继续即表示同意</text>
+    <text class="terms-link" bindtap="onShowUserAgreement">《用户协议》</text>
+    <text>和</text>
+    <text class="terms-link" bindtap="onShowPrivacyPolicy">《隐私政策》</text>
   </view>
 </view>

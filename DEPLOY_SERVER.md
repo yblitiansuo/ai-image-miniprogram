@@ -45,7 +45,7 @@ cd /opt/ai_image_miniprogram
 
 - `DEV_MODE=false`
 - `BACKEND_PORT=9999`
-- `CORS_ALLOW_ORIGINS=https://api.your-domain.com`
+- `CORS_ALLOW_ORIGINS=https://aiima.online`
 - 其余 MySQL/Redis/COS/ARK/WECHAT/JWT 改为真实值
 
 ## 5. 启动容器
@@ -96,15 +96,14 @@ sudo systemctl reload nginx
 
 ## 8. 小程序侧配置
 
-- 修改 `miniprogram/utils/api.js` 中生产域名为真实 `https://` 域名
-- 在微信公众平台配置合法域名：
+小程序前端已配置好正式域名 `https://aiima.online`，只需在微信公众平台配置合法域名：
   - request
   - uploadFile
   - downloadFile
 
 ## 9. 验收清单
 
-- `https://api.your-domain.com/health` 可用
+- `https://aiima.online/health` 可用
 - 登录成功
 - 图片上传成功
 - 创建任务成功

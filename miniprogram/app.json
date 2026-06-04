@@ -34,13 +34,11 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "cloud": true,
-  "requiredPrivateInfos": [
-    "getLocation"
-  ],
+  "cloud": false,
+  "lazyCodeLoading": "requiredComponents",
   "permission": {
-    "scope.userLocation": {
-      "desc": "用于定位服务，提供基于位置的服务"
+    "scope.writePhotosAlbum": {
+      "desc": "用于保存生成的商品图片到相册"
     }
   }
 }

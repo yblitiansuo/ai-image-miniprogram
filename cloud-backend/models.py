@@ -50,7 +50,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=True)  # 用户名（可选）
     password_hash = Column(String(255), nullable=True)  # 密码哈希（可选）
     running_tasks = Column(Integer, default=0)
-    quota = Column(Integer, default=3)
+    quota = Column(Integer, default=5)
     total_generated = Column(Integer, default=0)
     created_at = Column(DateTime, default=utcnow)
 

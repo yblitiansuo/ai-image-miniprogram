@@ -73,6 +73,7 @@ def validate_required():
         ('MYSQL_DB', config.MYSQL_DB),
         ('MYSQL_USER', config.MYSQL_USER),
         ('MYSQL_PASSWORD', config.MYSQL_PASSWORD),
+        ('JWT_SECRET', config.JWT_SECRET),
         ('ARK_API_KEY', config.ARK_API_KEY),
         ('COS_REGION', config.COS_REGION),
         ('COS_BUCKET', config.COS_BUCKET),

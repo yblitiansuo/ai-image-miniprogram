@@ -21,8 +21,8 @@
   </view>
 
   <view class="action-buttons">
-    <button class="btn btn-primary" bindtap="onPurchase" disabled="{{purchasing}}">
-      {{purchasing ? '处理中...' : '立即购买'}}
+    <button class="btn btn-primary" bindtap="onPurchase">
+      立即购买
     </button>
   </view>
 </view>

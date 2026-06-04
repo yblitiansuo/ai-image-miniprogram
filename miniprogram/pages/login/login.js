@@ -29,7 +29,7 @@ Page({
   /**
    * 登录入口：本地测试走 mock，上线走微信授权
    */
-  handleMockLogin() {
+  handleLogin() {
     this.setData({ isLoggingIn: true })
 
     if (app.globalData.useMockLogin) {
@@ -44,24 +44,15 @@ Page({
             const token = res.data.token
             const userId = res.data.user_id
 
-            console.log('[Login] Response:', res)
-            console.log('[Login] Token:', token)
-            console.log('[Login] UserId:', userId)
-
             // 保存 token 到本地存储
             wx.setStorageSync('token', token)
             wx.setStorageSync('userId', userId)
-
-            // 验证保存结果
-            const savedToken = wx.getStorageSync('token')
-            console.log('[Login] Saved token:', savedToken)
 
             // 更新全局状态
             app.globalData.token = token
             app.globalData.userId = userId
 
-            console.log('[Login] Global token:', app.globalData.token)
-
+            this.setData({ isLoggingIn: false })
             wx.showToast({
               title: '登录成功',
               icon: 'success'
@@ -131,6 +122,24 @@ Page({
         this.setData({ isLoggingIn: false })
         wx.showToast({ title: '微信登录失败', icon: 'none' })
       }
+    })
+  },
+
+  onShowUserAgreement() {
+    wx.showModal({
+      title: '用户协议',
+      content: '本小程序提供 AI 商品图生成服务。用户上传的图片仅用于生成处理，不会用于其他用途。用户应确保上传内容合法合规，不得上传侵权或违规内容。生成的图片版权归用户所有。',
+      showCancel: false,
+      confirmText: '我知道了'
+    })
+  },
+
+  onShowPrivacyPolicy() {
+    wx.showModal({
+      title: '隐私政策',
+      content: '我们重视您的隐私保护。本小程序仅收集必要的登录信息（微信 openid）和您主动上传的图片。上传的图片在处理完成后会定期清理，不会永久存储。我们不会将您的个人信息分享给第三方。',
+      showCancel: false,
+      confirmText: '我知道了'
     })
   },
 

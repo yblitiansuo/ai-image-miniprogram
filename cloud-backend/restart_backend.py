@@ -2,16 +2,23 @@ import subprocess
 import time
 import os
 
-# 停止旧的后端服务
-print("停止旧的后端服务...")
-result = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq python.exe'], capture_output=True, text=True, encoding='gbk')
+BACKEND_PORT = 9999
+
+# 停止占用指定端口的进程
+print(f"停止占用端口 {BACKEND_PORT} 的进程...")
+result = subprocess.run(
+    ['netstat', '-ano', '-p', 'tcp'],
+    capture_output=True, text=True, encoding='gbk'
+)
+killed_pids = set()
 for line in result.stdout.split('\n'):
-    if 'python.exe' in line and 'PID' not in line:
+    if f':{BACKEND_PORT}' in line and 'LISTENING' in line:
         parts = line.split()
-        if len(parts) >= 2:
-            pid = parts[1]
+        pid = parts[-1]
+        if pid.isdigit() and pid not in killed_pids:
             print(f"停止进程 {pid}")
             subprocess.run(['taskkill', '/F', '/PID', pid], capture_output=True)
+            killed_pids.add(pid)
 
 time.sleep(2)
 

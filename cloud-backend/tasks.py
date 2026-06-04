@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from config import config
 from db import SessionLocal, Task, User, TaskStatus, get_cloud_storage, extract_cloud_path
 from seedream import call_seedream_merge, DEFAULT_PROMPT
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -96,15 +96,18 @@ class _FileLock:
         self.path = path
         self.fd = None
 
-    def acquire(self, nonblocking=False):
-        try:
-            self.fd = os.open(self.path, os.O_CREAT | os.O_EXCL)
-            return True
-        except FileExistsError:
-            if nonblocking:
-                return False
-            time.sleep(0.1)
-            return self.acquire(nonblocking=False)
+    def acquire(self, nonblocking=False, timeout=30):
+        deadline = time.time() + timeout if not nonblocking else 0
+        while True:
+            try:
+                self.fd = os.open(self.path, os.O_CREAT | os.O_EXCL)
+                return True
+            except FileExistsError:
+                if nonblocking:
+                    return False
+                if time.time() >= deadline:
+                    return False
+                time.sleep(0.1)
 
     def release(self):
         if self.fd is not None:
@@ -122,6 +125,8 @@ def generate_task(self, task_id: str):
     Celery 任务：处理图片生成
     """
     db: Session = SessionLocal()
+    product_paths = []
+    ref_paths = []
     try:
         # 1. 查询任务（加锁避免并发修改）
         task = db.query(Task).filter(Task.id == task_id).with_for_update().first()
@@ -167,14 +172,14 @@ def generate_task(self, task_id: str):
 
         # 5. 对每个商品图调用 Seedream
         result_urls = []
-        for product_idx, config in mapping.items():
+        for product_idx, item_config in mapping.items():
             product_idx = int(product_idx)
             if product_idx >= len(product_paths):
                 continue
 
             product_path, _ = product_paths[product_idx]
-            ref_indices = config.get('refs', [])
-            custom_text = config.get('text', '')
+            ref_indices = item_config.get('refs', [])
+            custom_text = item_config.get('text', '')
 
             selected_refs = []
             for ref_idx in ref_indices:
@@ -215,7 +220,7 @@ def generate_task(self, task_id: str):
         # 7. 更新任务完成 + 减少 running_tasks (原子操作，加锁避免竞态)
         task.status = TaskStatus.completed
         task.result_urls = final_file_ids
-        task.finished_at = dt.now(dt.UTC)
+        task.finished_at = dt.now(timezone.utc)
         # 原子减少 running_tasks
         user = db.query(User).filter(User.id == task.user_id).with_for_update().first()
         if user and user.running_tasks > 0:
@@ -240,7 +245,7 @@ def generate_task(self, task_id: str):
         if task:
             task.error = str(e)
             task.status = TaskStatus.failed
-            task.finished_at = dt.now(dt.UTC)
+            task.finished_at = dt.now(timezone.utc)
             # 原子减少 running_tasks
             user = db.query(User).filter(User.id == task.user_id).with_for_update().first()
             if user and user.running_tasks > 0:
@@ -249,7 +254,7 @@ def generate_task(self, task_id: str):
             logger.info(f"Task {task_id} failed after {self.max_retries} retries, running_tasks decreased to {user.running_tasks if user else 'N/A'}")
     finally:
         db.close()
-        cleanup_temp_files(locals().get('product_paths', []) + locals().get('ref_paths', []))
+        cleanup_temp_files(product_paths + ref_paths)
 
 @celery_app.task(bind=True, name='tasks.cleanup_old_results')
 def cleanup_old_results(self):
@@ -264,7 +269,7 @@ def cleanup_old_results(self):
         db: Session = SessionLocal()
         cloud_storage = get_cloud_storage()
         try:
-            cutoff = dt.now(dt.UTC) - dt.timedelta(days=config.RESULT_RETENTION_DAYS)
+            cutoff = dt.now(timezone.utc) - timedelta(days=config.RESULT_RETENTION_DAYS)
             old_tasks = db.query(Task).filter(
                 Task.finished_at < cutoff,
                 Task.status == TaskStatus.completed,
@@ -303,18 +308,18 @@ def cleanup_stale_tasks(self):
     try:
         db: Session = SessionLocal()
         try:
-            cutoff = dt.now(dt.UTC) - dt.timedelta(hours=1)
+            cutoff = dt.now(timezone.utc) - timedelta(hours=1)
             stale_tasks = db.query(Task).filter(
                 Task.status == TaskStatus.processing,
                 Task.created_at < cutoff
-            ).all()
+            ).with_for_update().all()
             for task in stale_tasks:
                 user = db.query(User).filter(User.id == task.user_id).with_for_update().first()
                 if user and user.running_tasks > 0:
                     user.running_tasks -= 1
                 task.status = TaskStatus.failed
                 task.error = "任务执行超时，自动取消"
-                task.finished_at = dt.now(dt.UTC)
+                task.finished_at = dt.now(timezone.utc)
                 logger.info(f"Cleaned stale task {task.id}, corrected running_tasks for user {user.id if user else 'unknown'}")
             db.commit()
             logger.info(f"Cleaned up {len(stale_tasks)} stale tasks")

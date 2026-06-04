@@ -1,8 +1,6 @@
 // pages/index/index.js
 const api = require('../../utils/api.js')
 
-let taskIdCounter = 0
-
 Page({
   data: {
     // 任务列表
@@ -20,19 +18,13 @@ Page({
   },
 
   onLoad() {
-    console.log('[Index] onLoad called')
     const token = wx.getStorageSync('token')
-    console.log('[Index] Token from storage:', token)
-    console.log('[Index] Token check:', token ? 'found' : 'missing')
-    
     if (!token) {
-      console.log('[Index] No token, redirecting to login')
       wx.showToast({ title: '未登录，跳转登录页', icon: 'none' })
       wx.reLaunch({ url: '/pages/login/login' })
       return
     }
     this.setData({ token })
-    console.log('[Index] Token set, loading tasks...')
     this.loadTasks().catch((err) => {
       console.error('loadTasks failed:', err)
       wx.showToast({ title: '任务列表加载失败', icon: 'none' })
@@ -41,9 +33,9 @@ Page({
 
   onUnload() {
     // 清除所有轮询定时器
-    if (this._pollIntervals && this._pollIntervals.length) {
-      this._pollIntervals.forEach(t => clearInterval(t))
-      this._pollIntervals = []
+    if (this._pollTimerMap) {
+      Object.values(this._pollTimerMap).forEach(t => clearTimeout(t))
+      this._pollTimerMap = {}
     }
   },
 
@@ -105,7 +97,7 @@ Page({
     } else {
       // 新增模式
       tasks.push({
-        id: `task_${++taskIdCounter}_${Date.now()}`,
+        id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         productImage: taskForm.productImage,
         refImage: taskForm.refImage,
         text: taskForm.text,
@@ -188,19 +180,6 @@ Page({
     })
   },
 
-  showImagePicker(callback) {
-    wx.showActionSheet({
-      itemList: ['拍照', '从相册选择'],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          this.chooseImage(['camera'], callback)
-        } else {
-          this.chooseImage(['album'], callback)
-        }
-      }
-    })
-  },
-
   // 商品图操作
   showProductPicker() {
     this._showReplacePicker('product')
@@ -246,21 +225,32 @@ Page({
     this._submitSingleTask(index)
   },
 
-  // 全部提交
+  // 全部提交（串行执行，避免并发上传过多）
   onBatchSubmit() {
-    const tasks = this.data.tasks.filter(t => t.status === 'idle')
-    if (tasks.length === 0) {
+    const idleTaskIds = []
+    this.data.tasks.forEach((t) => { if (t.status === 'idle') idleTaskIds.push(t.id) })
+    if (idleTaskIds.length === 0) {
       wx.showToast({ title: '没有可提交的任务', icon: 'none' })
       return
     }
     wx.showModal({
       title: '确认提交',
-      content: `提交 ${tasks.length} 个任务，确定继续？`,
+      content: `提交 ${idleTaskIds.length} 个任务，确定继续？`,
       success: (res) => {
         if (res.confirm) {
-          this.data.tasks.forEach((t, i) => {
-            if (t.status === 'idle') this._submitSingleTask(i, true)
-          })
+          let pos = 0
+          const submitNext = () => {
+            if (pos >= idleTaskIds.length) return
+            const taskId = idleTaskIds[pos++]
+            const idx = this.data.tasks.findIndex(t => t.id === taskId)
+            if (idx === -1) { submitNext(); return }
+            this._uploadAndSubmitTask(idx, this.data.tasks[idx])
+              .then(() => submitNext())
+              .catch(() => submitNext())
+          }
+          // 同时启动 2 个并发
+          submitNext()
+          if (idleTaskIds.length > 1) submitNext()
         }
       }
     })
@@ -275,10 +265,20 @@ Page({
       console.error('Task submit failed:', err)
       const tasks = [...this.data.tasks]
       tasks[index].status = 'failed'
-      tasks[index].statusText = '失败'
+      const msg = (err.message || '')
+      if (msg.includes('402') || msg.includes('配额')) {
+        tasks[index].statusText = '配额不足'
+      } else if (msg.includes('429') || msg.includes('并发')) {
+        tasks[index].statusText = '请稍后再试'
+      } else if (msg.includes('上传')) {
+        tasks[index].statusText = '上传失败'
+      } else {
+        tasks[index].statusText = '提交失败'
+      }
+      this._updateTaskCounts(tasks)
       this.setData({ tasks })
       if (!silent) {
-        wx.showToast({ title: '提交失败', icon: 'none' })
+        wx.showToast({ title: tasks[index].statusText, icon: 'none' })
       }
     })
   },
@@ -334,7 +334,16 @@ Page({
       this._pollTask(index, backendTaskId, token)
     } catch (err) {
       tasks[index].status = 'failed'
-      tasks[index].statusText = '失败: ' + (err.message || '未知错误')
+      const msg = (err.message || '')
+      if (msg.includes('402') || msg.includes('配额')) {
+        tasks[index].statusText = '配额不足'
+      } else if (msg.includes('429') || msg.includes('并发')) {
+        tasks[index].statusText = '请稍后再试'
+      } else if (msg.includes('上传')) {
+        tasks[index].statusText = '上传失败'
+      } else {
+        tasks[index].statusText = '提交失败'
+      }
       this._updateTaskCounts(tasks)
       this.setData({ tasks })
       throw err
@@ -344,78 +353,125 @@ Page({
   // 上传文件
   _uploadFile(filePath, token) {
     return new Promise((resolve, reject) => {
-      wx.uploadFile({
+      let done = false
+      const finish = (fn, val) => {
+        if (done) return
+        done = true
+        fn(val)
+      }
+      const uploadTask = wx.uploadFile({
         url: `${api.BASE_URL}/api/upload`,
         filePath,
         name: 'file',
+        timeout: 30000,
         header: { Authorization: `Bearer ${token}` },
         success: (res) => {
           if (res.statusCode === 200) {
-            const data = JSON.parse(res.data)
-            resolve(data.file_id)
+            try {
+              const data = JSON.parse(res.data)
+              finish(resolve, data.file_id)
+            } catch (e) {
+              finish(reject, new Error('服务器返回数据格式错误'))
+            }
           } else {
-            reject(new Error(`上传失败: ${res.statusCode}`))
+            finish(reject, new Error(`上传失败: ${res.statusCode}`))
           }
         },
-        fail: reject
+        fail: (err) => {
+          finish(reject, new Error(err.errMsg || '上传失败'))
+        }
       })
+      // 超时兜底（仅在 wx.uploadFile 的 timeout 未生效时触发）
+      setTimeout(() => {
+        if (!done) {
+          uploadTask.abort()
+          finish(reject, new Error('上传超时'))
+        }
+      }, 35000)
     })
   },
 
-  // 轮询任务状态（每个任务独立定时器，避免泄漏）
+  // 轮询任务状态（指数退避：3s → 5s → 8s → 12s → 15s 封顶）
   _pollTask(index, taskId, token) {
-    const maxAttempts = 300
-    let attempts = 0
+    const maxDuration = 15 * 60 * 1000 // 最长 15 分钟
+    const startTime = Date.now()
+    let interval = 3000
+    let consecutiveErrors = 0
+    let currentTimer = null
 
-    if (!this._pollIntervals) this._pollIntervals = []
+    if (!this._pollTimerMap) this._pollTimerMap = {}
 
-    const timer = setInterval(async () => {
-      attempts++
+    const poll = async () => {
+      if (!this.data.tasks[index]) { return }
+      if (Date.now() - startTime > maxDuration) {
+        const tasks = [...this.data.tasks]
+        if (tasks[index]) {
+          tasks[index].status = 'failed'
+          tasks[index].statusText = '生成超时'
+          this._updateTaskCounts(tasks)
+          this.setData({ tasks })
+        }
+        delete this._pollTimerMap[taskId]
+        return
+      }
+
       try {
         const taskResult = await api.getTask(taskId, token)
+        consecutiveErrors = 0
 
         const tasks = [...this.data.tasks]
-        if (!tasks[index]) {
-          this._clearPollTimer(timer)
-          return
-        }
+        if (!tasks[index]) return
 
         if (taskResult.status === 'completed') {
-          this._clearPollTimer(timer)
           tasks[index].status = 'completed'
           tasks[index].statusText = '完成'
           tasks[index].resultUrls = taskResult.result_urls || []
           this._updateTaskCounts(tasks)
           this.setData({ tasks })
+          delete this._pollTimerMap[taskId]
+          return
         } else if (taskResult.status === 'failed') {
-          this._clearPollTimer(timer)
           tasks[index].status = 'failed'
           tasks[index].statusText = taskResult.error || '失败'
           this._updateTaskCounts(tasks)
           this.setData({ tasks })
+          delete this._pollTimerMap[taskId]
+          return
         }
+
+        // 未完成，继续轮询，间隔逐步增大
+        interval = Math.min(interval + 2000, 15000)
       } catch (err) {
-        if (attempts >= maxAttempts) {
-          this._clearPollTimer(timer)
+        consecutiveErrors++
+        // 连续网络失败超过 5 次才标记超时，避免误判
+        if (consecutiveErrors >= 5) {
           const tasks = [...this.data.tasks]
           if (tasks[index]) {
             tasks[index].status = 'failed'
-            tasks[index].statusText = '请求超时'
+            tasks[index].statusText = '网络异常，请检查网络后重试'
             this._updateTaskCounts(tasks)
             this.setData({ tasks })
           }
+          delete this._pollTimerMap[taskId]
+          return
         }
+        // 网络错误时退避更激进
+        interval = Math.min(interval * 1.5, 15000)
       }
-    }, 3000)
 
-    this._pollIntervals.push(timer)
+      currentTimer = setTimeout(poll, interval)
+      this._pollTimerMap[taskId] = currentTimer
+    }
+
+    currentTimer = setTimeout(poll, interval)
+    this._pollTimerMap[taskId] = currentTimer
   },
 
-  // 清理单个轮询定时器
-  _clearPollTimer(timer) {
-    clearInterval(timer)
-    if (this._pollIntervals) {
-      this._pollIntervals = this._pollIntervals.filter(t => t !== timer)
+  // 按 taskId 清理轮询定时器
+  _clearPollTimerForTask(taskId) {
+    if (this._pollTimerMap && this._pollTimerMap[taskId]) {
+      clearTimeout(this._pollTimerMap[taskId])
+      delete this._pollTimerMap[taskId]
     }
   },
 
@@ -444,27 +500,26 @@ Page({
       const tasks = resp.tasks.map(t => ({
         id: t.id,
         backendTaskId: t.id,
-        productImage: '', // 后端返回不包含商品图，需从其他地方获取？
+        productImage: '',
         refImage: '',
-        text: '',
-        prompt: '',
+        text: t.text || '',
+        prompt: t.prompt || '',
         status: t.status,
         statusText: this._getStatusText(t.status),
         resultUrls: t.result_urls,
-        resultCount: t.result_urls ? t.result_urls.length : 0
+        resultCount: t.result_urls ? t.result_urls.length : 0,
+        createTime: t.created_at || ''
       }))
       this.setData({ tasks })
       this._updateTaskCounts(tasks)
     } catch (err) {
       console.error('loadTasks failed:', err)
-      // 区分错误类型
       if (err.message === 'UNAUTHORIZED') {
         console.log('[Index] Token expired, re-logging in')
         wx.removeStorageSync('token')
         wx.reLaunch({ url: '/pages/login/login' })
       } else {
-        // 其他错误静默失败
-        console.warn('[Index] Load tasks failed:', err.message)
+        wx.showToast({ title: '任务列表加载失败，请下拉刷新', icon: 'none' })
       }
     }
   },
@@ -480,24 +535,35 @@ Page({
     return map[status] || status
   },
 
-  // 预览图片
+  // 预览图片（支持左右滑动浏览所有结果图）
   previewImage(e) {
     const url = e.currentTarget.dataset.url
-    if (url) wx.previewImage({ current: url, urls: [url] })
+    const urls = e.currentTarget.dataset.urls
+    if (url) {
+      wx.previewImage({ current: url, urls: urls || [url] })
+    }
   },
 
-  // 保存结果到相册
+  // 保存结果到相册（支持单张 data-url 和批量 data-urls）
   onSaveResult(e) {
-    const { url } = e.currentTarget.dataset
-    if (!url) return
+    const { url, urls } = e.currentTarget.dataset
+    const targetUrls = urls || (url ? [url] : [])
+    if (targetUrls.length === 0) return
 
-    // 检查相册权限
+    const doSave = () => {
+      if (targetUrls.length === 1) {
+        this._downloadAndSave(targetUrls[0])
+      } else {
+        this._downloadAndSaveAll(targetUrls)
+      }
+    }
+
     wx.getSetting({
       success: (res) => {
         if (!res.authSetting['scope.writePhotosAlbum']) {
           wx.authorize({
             scope: 'scope.writePhotosAlbum',
-            success: () => this._downloadAndSave(url),
+            success: doSave,
             fail: () => {
               wx.showModal({
                 title: '需要相册权限',
@@ -510,38 +576,95 @@ Page({
             }
           })
         } else {
-          this._downloadAndSave(url)
+          doSave()
         }
       },
       fail: () => wx.showToast({ title: '权限检查失败', icon: 'none' })
     })
   },
 
-  // 下载并保存图片（支持临时 URL 和永久 COS URL）
+  // 下载并保存单张图片（带超时保护）
   _downloadAndSave(url) {
     wx.showLoading({ title: '保存中...' })
-    wx.downloadFile({
-      url, // 注意：需在小程序后台配置 downloadFile 合法域名
+    let done = false
+    const finish = (msg, icon) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      wx.hideLoading()
+      wx.showToast({ title: msg, icon: icon || 'none' })
+    }
+
+    const task = wx.downloadFile({
+      url,
       success: (res) => {
         if (res.statusCode === 200) {
           wx.saveImageToPhotosAlbum({
             filePath: res.tempFilePath,
-            success: () => wx.showToast({ title: '已保存', icon: 'success' }),
-            fail: (e) => {
-              console.error('Save failed:', e)
-              wx.showToast({ title: '保存失败', icon: 'none' })
-            }
+            success: () => finish('已保存', 'success'),
+            fail: (e) => { console.error('Save failed:', e); finish('保存失败') }
           })
         } else {
-          wx.showToast({ title: '下载失败: ' + res.statusCode, icon: 'none' })
+          finish('下载失败: ' + res.statusCode)
         }
       },
-      fail: (e) => {
-        console.error('Download failed:', e)
-        wx.showToast({ title: '下载失败，请检查网络', icon: 'none' })
-      },
-      complete: () => wx.hideLoading()
+      fail: (e) => { console.error('Download failed:', e); finish('下载失败，请检查网络') }
     })
+    // 30秒超时兜底
+    const timer = setTimeout(() => { if (!done) { task.abort(); finish('下载超时') } }, 30000)
+  },
+
+  // 批量保存所有结果图（串行，简单可靠）
+  _downloadAndSaveAll(urls) {
+    wx.showLoading({ title: '保存中...' })
+    let saved = 0
+    let failed = 0
+    const total = urls.length
+    let idx = 0
+
+    const finish = () => {
+      wx.hideLoading()
+      if (failed > 0) {
+        wx.showToast({ title: `已保存${saved}张，${failed}张失败`, icon: 'none' })
+      } else {
+        wx.showToast({ title: `全部${total}张已保存`, icon: 'success' })
+      }
+    }
+
+    const next = () => {
+      if (idx >= total) { finish(); return }
+      const url = urls[idx++]
+      wx.showLoading({ title: `保存中 ${idx}/${total}` })
+
+      let done = false
+      const onDone = (ok) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        if (ok) saved++; else failed++
+        next()
+      }
+
+      const task = wx.downloadFile({
+        url,
+        success: (res) => {
+          if (res.statusCode === 200) {
+            wx.saveImageToPhotosAlbum({
+              filePath: res.tempFilePath,
+              success: () => onDone(true),
+              fail: () => onDone(false)
+            })
+          } else {
+            onDone(false)
+          }
+        },
+        fail: () => onDone(false)
+      })
+      // 30秒超时
+      const timer = setTimeout(() => { if (!done) { task.abort(); onDone(false) } }, 30000)
+    }
+
+    next()
   },
 
   // 遮罩层点击（仅点击遮罩时关闭）

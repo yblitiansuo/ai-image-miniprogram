@@ -110,6 +110,6 @@ celery -A tasks beat --loglevel=info                        # Celery Beat
 
 ## 项目状态
 
-API 全流程（登录 → 上传 → AI 生成 → 结果存储）已通过验证，等待 ICP 备案完成后正式上线。
+API 全流程（登录 → 上传 → AI 生成 → 结果存储）已通过验证，前端已切换至生产配置。
 
-详细开发进度见 `PROJECT_STATUS.md`。
+当前 UI 风格为 Gallery Studio 极简版（2026-05-06），深色主题 Darkroom Pro 仅作设计参考。

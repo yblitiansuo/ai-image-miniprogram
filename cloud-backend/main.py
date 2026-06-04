@@ -3,6 +3,7 @@ import os
 import uuid
 import json
 import logging
+import hashlib
 from datetime import datetime, UTC
 from typing import List, Optional
 
@@ -98,17 +99,56 @@ def get_db():
     finally:
         db.close()
 
+# Presigned URL 缓存（Redis，TTL 50 分钟，URL 有效期 60 分钟）
+from collections import OrderedDict
+_presigned_cache = OrderedDict()  # LRU 内存回退：file_id → (url, expire_ts)
+_presigned_cache_max = 1000
+import time as _time
+
+def _get_cached_presigned_url(file_id: str, cloud_storage, expires: int = 3600) -> str:
+    cache_key = f"presigned:{hashlib.md5(file_id.encode()).hexdigest()}"
+    cache_ttl = expires - 600  # 比 URL 有效期少 10 分钟
+
+    # 尝试 Redis
+    try:
+        from tasks import celery_app
+        backend = celery_app.backend
+        if hasattr(backend, 'client'):
+            cached = backend.client.get(cache_key)
+            if cached:
+                return cached.decode('utf-8') if isinstance(cached, bytes) else cached
+    except Exception as e:
+        logger.debug(f"Redis cache read failed: {e}")
+
+    # 内存回退
+    cached = _presigned_cache.get(file_id)
+    if cached and cached[1] > _time.time():
+        return cached[0]
+
+    # 生成新 URL
+    url = cloud_storage.get_presigned_url(file_id, expires=expires)
+
+    # 写入缓存
+    try:
+        from tasks import celery_app
+        backend = celery_app.backend
+        if hasattr(backend, 'client'):
+            backend.client.setex(cache_key, cache_ttl, url)
+    except Exception as e:
+        logger.debug(f"Redis cache write failed: {e}")
+    # LRU：满了先淘汰最早的
+    if len(_presigned_cache) >= _presigned_cache_max:
+        _presigned_cache.popitem(last=False)
+    _presigned_cache[file_id] = (url, _time.time() + cache_ttl)
+
+    return url
+
 def verify_token(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
     if authorization and authorization.startswith("Bearer "):
         token_value = authorization[7:]
-        # 优先尝试 JWT
         user_id = verify_jwt_token(token_value)
-        if user_id:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                return user
-        # 回退到直接 user_id（兼容旧版）
-        user_id = token_value
+        if not user_id:
+            raise HTTPException(401, "无效或过期的 Token")
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(401, "用户不存在")
@@ -121,13 +161,30 @@ class GenerateRequest(BaseModel):
     mapping: dict
     prompt: Optional[str] = ""
 
+class CreatePaymentRequest(BaseModel):
+    package_id: str
+
+class CompletePaymentRequest(BaseModel):
+    order_id: str
+    wechat_transaction_id: Optional[str] = None
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), user: User = Depends(verify_token)):
     """
     上传图片到云存储（COS）
     前端用 wx.uploadFile 发送
     """
+    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB
+
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, f"不支持的文件类型: {content_type}，仅支持 JPG/PNG/WebP")
+
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_SIZE:
+        raise HTTPException(400, f"文件过大: {len(file_bytes) / 1024 / 1024:.1f}MB，最大 10MB")
+
     cloud_storage = get_cloud_storage()
     cloud_path = cloud_storage.generate_cloud_path('uploads', f"{uuid.uuid4().hex}.jpg")
     file_id = cloud_storage.upload_bytes(file_bytes, cloud_path)
@@ -235,6 +292,11 @@ async def user_info(user: User = Depends(verify_token)):
 
 @app.post("/api/generate")
 async def generate(req: GenerateRequest, user: User = Depends(verify_token), db: Session = Depends(get_db)):
+    # 加行锁重新获取用户，确保配额检查与扣减的原子性
+    user = db.query(User).filter(User.id == user.id).with_for_update().first()
+    if not user:
+        raise HTTPException(401, "用户不存在")
+
     # 配额检查
     if user.quota <= 0:
         raise HTTPException(402, "配额不足，请购买套餐")
@@ -242,12 +304,12 @@ async def generate(req: GenerateRequest, user: User = Depends(verify_token), db:
     if user.running_tasks >= 3:
         raise HTTPException(429, "并发任务数已达上限（最多 3 个）")
 
-    # 减少配额并增加已生成数量
+    # 扣减配额（在锁内完成）
     user.quota -= 1
     user.running_tasks += 1
     user.total_generated += 1
-    db.commit()
 
+    # 创建任务
     task = Task(
         id=str(uuid.uuid4()),
         user_id=user.id,
@@ -263,7 +325,12 @@ async def generate(req: GenerateRequest, user: User = Depends(verify_token), db:
         from tasks import generate_task
         generate_task.delay(task.id)
     except Exception as e:
-        # 如果 Celery 不可用，抛出错误（建议启动 worker）
+        # Celery 不可用，回滚配额并删除任务
+        user.quota += 1
+        user.running_tasks -= 1
+        user.total_generated -= 1
+        db.delete(task)
+        db.commit()
         raise HTTPException(500, f'异步任务提交失败：{e}')
 
     logger.info(f"User {user.id} created task {task.id}, running_tasks increased to {user.running_tasks}")
@@ -281,7 +348,7 @@ async def get_task(task_id: str, user: User = Depends(verify_token), db: Session
         public_urls = []
         for file_id in result_urls:
             try:
-                url = cloud_storage.get_presigned_url(file_id, expires=3600)
+                url = _get_cached_presigned_url(file_id, cloud_storage)
                 public_urls.append(url)
             except Exception as e:
                 logger.warning(f"Failed to get presigned URL for {file_id}: {e}")
@@ -299,6 +366,8 @@ async def get_task(task_id: str, user: User = Depends(verify_token), db: Session
 
 @app.get("/api/tasks")
 async def list_tasks(page: int = 1, limit: int = 20, user: User = Depends(verify_token), db: Session = Depends(get_db)):
+    page = max(page, 1)  # 确保页码 >= 1
+    limit = min(limit, 100)  # 限制最大查询数量
     offset = (page - 1) * limit
     tasks = db.query(Task).filter(Task.user_id == user.id).order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
 
@@ -310,18 +379,23 @@ async def list_tasks(page: int = 1, limit: int = 20, user: User = Depends(verify
             public_urls = []
             for file_id in urls:
                 try:
-                    url = cloud_storage.get_presigned_url(file_id, expires=3600)
+                    url = _get_cached_presigned_url(file_id, cloud_storage)
                     public_urls.append(url)
                 except Exception as e:
                     logger.warning(f"Failed to get presigned URL for {file_id}: {e}")
                     public_urls.append(file_id)
             urls = public_urls
+        params = t.params or {}
+        mapping = params.get('mapping', {})
+        first_mapping = next(iter(mapping.values()), {}) if mapping else {}
         result.append({
             "id": t.id,
             "status": t.status.value,
             "result_urls": urls,
             "error": t.error,
-            "created_at": t.created_at.isoformat()
+            "created_at": t.created_at.isoformat(),
+            "text": first_mapping.get('text', ''),
+            "prompt": params.get('prompt', '')
         })
     return {"tasks": result}
 
@@ -354,7 +428,7 @@ async def delete_task(task_id: str, user: User = Depends(verify_token), db: Sess
         raise
     except Exception as e:
         logger.exception(f"Unexpected error in delete_task: {e}")
-        raise HTTPException(500, f"服务器内部错误：{type(e).__name__}: {e}")
+        raise HTTPException(500, "服务器内部错误")
 
 # ============== 支付路由 ==============
 @app.get("/pay/packages")
@@ -363,31 +437,30 @@ async def list_packages(user: User = Depends(verify_token)):
     return {"packages": get_packages()}
 
 @app.post("/pay/create")
-async def create_payment(data: dict, user: User = Depends(verify_token), db: Session = Depends(get_db)):
+async def create_payment(req: CreatePaymentRequest, user: User = Depends(verify_token), db: Session = Depends(get_db)):
     """创建订单"""
-    package_id = data.get("package_id")
-    if not package_id:
-        raise HTTPException(400, "缺少 package_id")
-    order = create_order(user.id, package_id)
+    try:
+        order = create_order(user.id, req.package_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return {
-        "order_id": order.id,
-        "package_name": order.package_name,
-        "price": order.price,
-        "quota_added": order.quota_added,
-        "status": order.status.value,
+        "order_id": order["id"],
+        "package_name": order["package_name"],
+        "price": float(order["price"]),
+        "quota_added": order["quota_added"],
+        "status": order["status"],
         "message": "订单已创建，请调用 /pay/complete 完成支付（生产环境需调微信支付）"
     }
 
 @app.post("/pay/complete")
-async def complete_payment(data: dict, user: User = Depends(verify_token), db: Session = Depends(get_db)):
-    """模拟支付完成（生产环境由微信回调此接口）"""
-    order_id = data.get("order_id")
-    if not order_id:
-        raise HTTPException(400, "缺少 order_id")
-    order = complete_order(order_id)
+async def complete_payment(req: CompletePaymentRequest, user: User = Depends(verify_token), db: Session = Depends(get_db)):
+    """完成支付（生产环境由微信支付回调调用，需验证签名）"""
+    # 生产环境应在此处验证微信支付回调签名，当前为模拟模式
+    # TODO: 上线前接入微信支付回调验证
+    order = complete_order(req.order_id, req.wechat_transaction_id, current_user_id=user.id)
     if not order:
         raise HTTPException(400, "订单不存在或已处理")
-    return {"ok": True, "quota_added": order.quota_added, "message": "支付完成，配额已增加"}
+    return {"ok": True, "quota_added": order["quota_added"], "message": "支付完成，配额已增加"}
 
 if __name__ == "__main__":
     import uvicorn

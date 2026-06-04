@@ -30,12 +30,14 @@ Page({
     })
     this.loadUserInfo()
     this.loadTasks()
+    this._loaded = true
   },
 
   onShow() {
     if (!this.data.token) {
       wx.redirectTo({ url: '/pages/login/login' })
-    } else {
+    } else if (this._loaded) {
+      // 非首次加载时才刷新，避免 onLoad+onShow 重复请求
       this.loadUserInfo()
       this.loadTasks()
     }
@@ -64,13 +66,16 @@ Page({
       this.setData({ tasks: res.tasks || [] })
     } catch (err) {
       console.error('Get tasks failed:', err)
+      wx.showToast({ title: '任务列表加载失败', icon: 'none' })
     }
   },
 
   formatDate(isoStr) {
     if (!isoStr) return ''
     const date = new Date(isoStr)
-    return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${date.getFullYear()}-${m}-${d}`
   },
 
   goToPurchase() {
@@ -83,10 +88,7 @@ Page({
       content: '确定要退出吗？',
       success: (res) => {
         if (res.confirm) {
-          wx.removeStorageSync('token')
-          wx.removeStorageSync('userId')
-          app.globalData.token = null
-          app.globalData.userId = null
+          app.logout()
           wx.redirectTo({ url: '/pages/login/login' })
         }
       }

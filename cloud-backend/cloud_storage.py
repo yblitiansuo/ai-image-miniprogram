@@ -3,6 +3,7 @@
 """
 import os
 import time
+import base64
 import hashlib
 import hmac
 import tempfile
@@ -45,20 +46,17 @@ class CloudStorage:
             f"SECRET_KEY={'OK' if secret_key else 'MISSING'}, BUCKET={bucket or 'MISSING'}, REGION={region or 'MISSING'}"
         )
 
-        self.region = region or "ap-guangzhou"
-        self.bucket = bucket or ""
-        
-        # 云托管内置 COS：不传 secret，用临时密钥方式
         if not secret_id or not secret_key:
-            logger.info("Using cloud托管内置 COS (临时密钥模式)")
-            self.secret_id = None
-            self.secret_key = None
-            self.endpoint = None  # 临时密钥模式下不设置 endpoint
-        else:
-            # 传统 COS 方式
-            self.secret_id = secret_id
-            self.secret_key = secret_key
-            self.endpoint = f"{bucket}.cos.{region}.myqcloud.com"
+            raise ValueError("COS_SECRET_ID / COS_SECRET_KEY 未配置")
+
+        if not bucket:
+            raise ValueError("COS_BUCKET 未配置")
+
+        self.region = region or "ap-guangzhou"
+        self.bucket = bucket
+        self.secret_id = secret_id
+        self.secret_key = secret_key
+        self.endpoint = f"{bucket}.cos.{region}.myqcloud.com"
 
     def _sign(self, method: str, path: str, headers: dict, params: dict = None) -> str:
         """
@@ -143,8 +141,6 @@ class CloudStorage:
 
         if method.upper() == 'PUT' and data is not None:
             headers['Content-Type'] = 'image/jpeg'
-            # 计算 Content-MD5
-            import base64
             content_md5 = base64.b64encode(hashlib.md5(data).digest()).decode()
             headers['Content-MD5'] = content_md5
             headers['Content-Length'] = str(len(data))
@@ -190,6 +186,10 @@ class CloudStorage:
             return temp_path
         except CloudStorageFallback as e:
             logger.warning(f"COS download failed, falling back to mock: {e}")
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
             return MockCloudStorage().download_to_temp(cloud_path)
 
     def upload_bytes(self, data: bytes, cloud_path: str, content_type: str = "image/jpeg") -> str:

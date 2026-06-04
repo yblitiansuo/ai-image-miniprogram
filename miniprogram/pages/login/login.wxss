@@ -92,3 +92,8 @@
   line-height: 1.6;
   padding: 0 32rpx;
 }
+
+.terms-link {
+  color: #1a1a1a;
+  text-decoration: underline;
+}

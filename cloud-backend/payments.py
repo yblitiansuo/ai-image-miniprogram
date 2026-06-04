@@ -15,6 +15,21 @@ def create_order(user_id: str, package_id: str):
     from models import SessionLocal, Order, OrderStatus
     db = SessionLocal()
     try:
+        # 防重复下单：如果已有同套餐的未支付订单，直接返回
+        existing = db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.package_id == package_id,
+            Order.status == OrderStatus.pending
+        ).first()
+        if existing:
+            return {
+                "id": existing.id,
+                "package_name": existing.package_name,
+                "price": existing.price,
+                "quota_added": existing.quota_added,
+                "status": existing.status.value,
+            }
+
         pkg = next((p for p in PACKAGES if p["id"] == package_id), None)
         if not pkg:
             raise ValueError("套餐不存在")
@@ -29,28 +44,45 @@ def create_order(user_id: str, package_id: str):
         db.add(order)
         db.commit()
         db.refresh(order)
-        return order
+        return {
+            "id": order.id,
+            "package_name": order.package_name,
+            "price": order.price,
+            "quota_added": order.quota_added,
+            "status": order.status.value,
+        }
     finally:
         db.close()
 
-def complete_order(order_id: str, wechat_tx_id: str = None):
+def complete_order(order_id: str, wechat_tx_id: str = None, current_user_id: str = None):
     from models import SessionLocal, Order, OrderStatus, User
     db = SessionLocal()
     try:
-        order = db.query(Order).filter(Order.id == order_id).first()
+        # 对 Order 加行锁，防止并发重复完成
+        order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
         if not order or order.status != OrderStatus.pending:
+            return None
+        # 验证订单归属
+        if current_user_id and order.user_id != current_user_id:
             return None
         order.status = OrderStatus.paid
         order.wechat_transaction_id = wechat_tx_id
         order.paid_at = datetime.now(timezone.utc)
-        db.commit()
         user = db.query(User).filter(User.id == order.user_id).with_for_update().first()
         if user:
             if order.quota_added == -1:
                 user.quota = 999999  # 无限月卡
             elif order.quota_added > 0:
                 user.quota += order.quota_added
-            db.commit()
-        return order
+        db.commit()
+        # 返回 dict，避免 session 关闭后 ORM 对象 DetachedInstanceError
+        return {
+            "id": order.id,
+            "quota_added": order.quota_added,
+            "status": order.status.value,
+        }
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

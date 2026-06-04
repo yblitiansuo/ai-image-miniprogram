@@ -76,11 +76,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def register_user(username: str, password: str, db):
     """注册新用户"""
+    username = username.strip()
+    if len(username) < 3 or len(username) > 30:
+        raise HTTPException(400, "用户名长度需为 3-30 个字符")
+    if len(password) < 6:
+        raise HTTPException(400, "密码长度至少 6 个字符")
+
     # 检查用户名是否已存在
     user = db.query(User).filter(User.username == username).first()
     if user:
         raise HTTPException(400, "用户名已存在")
-    
+
     # 创建用户
     password_hash = hash_password(password)
     user = User(
@@ -88,7 +94,7 @@ def register_user(username: str, password: str, db):
         username=username,
         password_hash=password_hash,
         running_tasks=0,
-        quota=3,
+        quota=5,
         total_generated=0,
         created_at=datetime.now(timezone.utc)
     )
@@ -133,7 +139,7 @@ def init_user_if_not_exists(openid: str):
             user = User(
                 id=openid,
                 running_tasks=0,
-                quota=3,
+                quota=5,
                 total_generated=0,
                 created_at=datetime.now(timezone.utc)
             )
